@@ -1,0 +1,18 @@
+{
+  "name": "iitkbucks",
+  "version": "1.0.0",
+  "description": "BlockChain project conducted by SNT",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Suhas",
+  "license": "ISC",
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "fs": "0.0.1-security",
+    "nano-time": "^1.0.0",
+    "pem": "^1.14.4",
+    "pem-file": "^1.0.1"
+  }
+}
