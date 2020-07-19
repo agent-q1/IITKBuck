@@ -3,6 +3,7 @@ const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
 const http = require('http');
+const https = require('https');
 const {
     Worker, isMainThread, parentPort, workerData
 } = require('worker_threads');
@@ -19,6 +20,7 @@ const getInputDataFromTransaction = require('./Ass3');
 const byteArrayFromTransaction = require('./Ass3');
 const transactionFromByteArray = require('./Ass3');
 const BlockHeader = require("./Transactions/BlockHeader");
+const { stat } = require("fs");
 
 
 const limitOfPeerSize = 5;
@@ -31,7 +33,7 @@ app.use(express.json())
 
 let resmap = new Map()
 let UnusedOutputs = new Map();
-let peers = ['http:/www.google.com/add']
+let peers = ['iitkbucks.pclub.in']
 
 let PotentialPeers = ['http:/www.google.com'];
 
@@ -39,17 +41,15 @@ let pendingTransactions = [];
 let blockHeaders = [];
 
 
-if (isMainThread) {
+if (isMainThread) {    
 
 
-
-    
 
 
     app.get("/getBlock/:blockNumber", (req, res) => {
-
         res.setHeader('content-type', 'application/octet-stream');
-        res.send(blocks[i].data)
+        // fs.readFileSync
+        res.send(blocks[blockNumber].data)
 
 
     });
@@ -73,11 +73,20 @@ if (isMainThread) {
     });
 
     app.get('/getPeers', (req, res) => {
+
+       
+        
+
+
         res.send(JSON.stringify(peers));
     });
 
     app.post('/newBlock', (req, res) => {
         blockData = req.body.data;
+        // Make block object using blockData
+        //validate pura block with checking double spending
+        //processblock()
+        // post request to all peers with same data.
         blockHeaders.push(blockData);
 
     });
@@ -90,7 +99,6 @@ if (isMainThread) {
         for (const input of inputs) {
             const inputObject = new Input(input.transactionID, input.index, input.signature);
             transaction.inputs.push(inputObject);
-
         }
         const outputs = Object.values(req.body.outputs);
 
@@ -170,6 +178,8 @@ if (isMainThread) {
         res.send("Thanks for the post")
     });
 
+    initialise();
+
 
     app.listen(3000, () => {
         console.log("server started on port 3000");
@@ -182,6 +192,8 @@ if (isMainThread) {
         }
       }, 1000);
 
+     
+
     
         const worker = new Worker(__filename, {
             workerData: pendingTransactions
@@ -192,6 +204,7 @@ if (isMainThread) {
             // block is a new mined block with everything in order.
 
               //found new block, send to peers
+              console.log(block)
           })
 
     
@@ -202,8 +215,9 @@ else{
 
     block = new Block();
     block.body = workerData;
+    console.log('new worker created');
 
-    let nonce = startmining(workerData);
+    let nonce =  startmining(workerData);
 
     parentPort.postMessage(nonce);
 
@@ -213,15 +227,94 @@ else{
 function startmining(blockBody){
     //code to mine
     //returns entire block
+    
+   
 }
 
 function initialise() {
-    findPeers();
+    //findPeers();
+    console.log('initialised');
+
+    const options2 = {
+        hostname: 'iitkbucks.pclub.in',
+        path: '/getBlock/1',
+        method: 'GET'
+    };
+    console.log(options2);
+
+    https.request(options2, (res) => {
+        const { statusCode } = res;
+        console.log(statusCode);
+        res.on('data', function (blockData) {
+
+            block = calculateBlockFromData(blockData);
+            console.log(block);
+
+
+          });
+
+        //handle peers
+    }).end();
+    
+
+   
+
+
+    //send getblock to one of the peer continuously
+    // getpendingtransaction
+    // start mining() with subset of pending transaction.
+
 
 
 
 }
+function calculateBlockFromData(data){
+
+    let currentPos = 0;
+    const index = parseInt(data.readUInt32BE(currentPos).toString(16), 10);
+    currentPos += 4;
+    console.log('index is' , index);
+    const bufA = data.subarray(currentPos, currentPos + 32);
+    currentPos += 32;
+    const hashOfParentBlock = bufA.toString('hex');
+    const bufB = data.subarray(currentPos, currentPos + 32);
+    currentPos += 32;
+    const hashOfBlockBody = bufB.toString('hex');
+    const bufC = data.subarray(currentPos, currentPos + 32);
+    currentPos += 32;
+    const targetValue = bufC.toString('hex');
+    const timestamp = data.readBigUInt64BE(currentPos);
+        currentPos += 8;
+        const nonce = data.readBigUInt64BE(currentPos);
+        currentPos += 8;
+
+    blockHeader1 = new BlockHeader(index, hashOfParentBlock, targetValue,  timestamp.toString(), nonce.toString());
+    
+    console.log(blockHeader1);
+    console.log(currentPos)
+    block = new Block();
+    block.blockHeader = blockHeader1;
+    const numberOfTransactions = parseInt(data.readUInt32BE(currentPos).toString(16), 10);
+    currentPos += 4;
+    console.log(numberOfTransactions);
+    for(let i = 0;i<numberOfTransactions;i++){
+        const sizeOfTransaction = parseInt(data.readUInt32BE(currentPos).toString(16), 10);
+        console.log(sizeOfTransaction);
+        currentPos+=4;
+        const transactionData = data.subarray(currentPos, currentPos + sizeOfTransaction);
+        currentPos+=sizeOfTransaction;
+        console.log(transactionData);
+        transaction = transactionFromByteArray(transactionData);
+        block.blockBody.push(transaction);
+
+    }
+    return block;
+}
 function processBlock(block) {
+
+    // block header less than parent 
+    // target should be equal 
+    // hash of n-1 should be parent hash of n
 
     for (transaction in block.blockBody) {
 
@@ -233,7 +326,8 @@ function processBlock(block) {
 
     for (transaction in block.blockBody) {
         for (output in transaction.outputs) {
-            let key = JSON.stringify([transaction.inputs[0].transactionID, transaction.inputs[0].indexOfOutput]);
+            // transaction IID = hash of transaction.data
+            let key = JSON.stringify([transactionIID, (i)]);
             UnusedOutputs.set(key, output);
 
 
@@ -243,6 +337,7 @@ function processBlock(block) {
     }
 
     blockHeaders.push(block.blockHeader);
+    // save the entire data as .dat with name blocki block.data
 
 }
 

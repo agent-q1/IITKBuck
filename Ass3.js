@@ -19,24 +19,24 @@ verify(signature, str);
 
 
 
-function sign(str){
+function sign(str) {
     const privateKey = fs.readFileSync("a_private.pem");
 
-    const dataToBeSigned = Buffer.from(str,'hex');
+    const dataToBeSigned = Buffer.from(str, 'hex');
     const sign = crypto.createSign('SHA256');
     sign.update(dataToBeSigned);
     sign.end();
-    
-    
+
+
     const privateKeyObject = {
         key: privateKey,
         padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength : 32
-        
+        saltLength: 32
+
     }
     //const signatureBuffer = sign.sign(privateKeyObject);
     const signatureString = sign.sign(privateKeyObject, 'hex');
-    
+
     console.log(signatureString);
     return signatureString;
     //const verify = crypto.createVerify('SHA256');
@@ -46,19 +46,19 @@ function sign(str){
 
 }
 
-function verify(signatureString, str){
+function verify(signatureString, str) {
     const verify = crypto.createVerify('SHA256');
-    const dataThatWasSigned = Buffer.from(str,'hex');
+    const dataThatWasSigned = Buffer.from(str, 'hex');
     const publicKey = fs.readFileSync("a_public.pem");
     verify.update(dataThatWasSigned);
     verify.end();
     const publicKeyObject = {
-        key : publicKey,
+        key: publicKey,
         padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength : 32
+        saltLength: 32
 
     }
-    console.log(verify.verify(publicKeyObject,signatureString,'hex'));
+    console.log(verify.verify(publicKeyObject, signatureString, 'hex'));
 
 
 }
@@ -234,9 +234,9 @@ function validateTransaction(transaction) {
 
     let sumOfInputCoins = 0, sumOfOutputCoins = 0;
 
-    for(let i = 0;i<transaction.outputs.length;i++){
+    for (let i = 0; i < transaction.outputs.length; i++) {
         let output = transaction.outputs[i];
-        sumOfOutputCoins+= output.coins;
+        sumOfOutputCoins += output.coins;
     }
 
 
@@ -251,7 +251,7 @@ function validateTransaction(transaction) {
 
         output = UnusedOutputs.get(key);
         UnusedOutputs.delete(key);
-        sumOfInputCoins+= output.coins;
+        sumOfInputCoins += output.coins;
         userPublicKey = output.publicKey;
 
         const transactionID = input.transactionID;
@@ -263,25 +263,23 @@ function validateTransaction(transaction) {
 
         const FinalDataToBeSigned = Buffer.concat([bufTransactionID, bufIndexOfInput, hashData], bufTransactionID.length + bufIndexOfInput.length + hashData.length);
 
-        const publicKey = crypto.createPublicKey(userPublicKey);
-        // publicKey.padding = crypto.constants.RSA_PKCS1_PSS_PADDING;
-        const verify = crypto.createVerify('SHA256');
-        verify.write(FinalDataToBeSigned);
-        verify.end();
-
-        if(!verify.verify(publicKey, input.signature , 'hex')){
-            return false ;
-        }
-
-
-
         
+        const verify = crypto.createVerify('SHA256');
+       
+        verify.update(FinalDataToBeSigned);
+        verify.end();
+        const publicKeyObject = {
+            key: userPublicKey,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+            saltLength: 32
 
-
-
-
+        }
+        if(!verify.verify(publicKeyObject, input.signature, 'hex')){
+            return false;
+        }
+        
     }
-    return (sumOfInputCoins <= sumOfOutputCoins) ;
+    return (sumOfInputCoins >= sumOfOutputCoins);
 
 
 }
